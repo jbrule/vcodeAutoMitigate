@@ -1,13 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/brian1917/vcodeapi"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func main() {
@@ -18,7 +18,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer f.Close()
-	log.SetOutput(f)
+	log.SetOutput(os.Stdout)
 	log.Printf("Started running")
 
 	// SET SOME VARIABLES
@@ -28,6 +28,7 @@ func main() {
 	var errorCheck error
 	var flawList []string
 	var buildsBack int
+	var a vcodeapi.DetReport
 
 	// PARSE CONFIG FILE AND LOG CONFIG SETTINGS
 	config := parseConfig()
@@ -44,7 +45,7 @@ func main() {
 		appSkip = false
 		appCounter++
 
-		fmt.Printf("Processing App ID %v (%v of %v)\n", appID, appCounter, len(appList))
+		log.Printf("Processing App ID %v (%v of %v)\n", appID, appCounter, len(appList))
 
 		//GET THE BUILD LIST
 		buildList, err := vcodeapi.ParseBuildList(config.Auth.CredsFile, appID)
@@ -59,26 +60,32 @@ func main() {
 			recentBuild = ""
 		} else {
 			//GET THE DETAILED RESULTS FOR MOST RECENT BUILD
-			flaws, _, errorCheck = vcodeapi.ParseDetailedReport(config.Auth.CredsFile, buildList[len(buildList)-1].BuildID)
+			a, flaws, _, errorCheck = vcodeapi.ParseDetailedReport(config.Auth.CredsFile, buildList[len(buildList)-1].BuildID)
+			spew.Dump(a)
+			spew.Dump(errorCheck)
 			recentBuild = buildList[len(buildList)-1].BuildID
 			buildsBack = 1
+			// spew.Dump(buildList)
 			//IF THAT BUILD HAS AN ERROR, GET THE NEXT MOST RECENT (CONTINUE FOR 4 TOTAL BUILDS)
 			for i := 1; i < 4; i++ {
 				if len(buildList) > i && errorCheck != nil {
-					flaws, _, errorCheck = vcodeapi.ParseDetailedReport(config.Auth.CredsFile, buildList[len(buildList)-(i+1)].BuildID)
+					a, flaws, _, errorCheck = vcodeapi.ParseDetailedReport(config.Auth.CredsFile, buildList[len(buildList)-(i+1)].BuildID)
+					spew.Dump(a)
 					recentBuild = buildList[len(buildList)-(i+1)].BuildID
 					buildsBack = i + 1
-					fmt.Println(buildsBack)
+					log.Println(buildsBack)
 				}
 			}
 			// IF 4 MOST RECENT BUILDS HAVE ERRORS, THERE ARE NO RESULTS AVAILABLE
 			if errorCheck != nil {
+				log.Println("some sort of error")
 				appSkip = true
 			}
 		}
 
 		//CHECK FLAWS AND
 		if appSkip == false {
+			log.Println("App not skipped")
 			for _, f := range flaws {
 				// ONLY RUN ON NEW, OPEN, AND RE-OPENE FLAWS
 				if f.RemediationStatus == "New" || f.RemediationStatus == "Open" || f.RemediationStatus == "Reopened" {
@@ -87,16 +94,21 @@ func main() {
 					cweList := strings.Split(config.TargetFlaws.CWEList, ",")
 					for _, cwe := range cweList {
 						if cwe == f.Cweid {
+							log.Println("match")
 							matches++
 						}
 					}
+					log.Printf("%v Matches found", matches)
 					if matches > 0 {
 						// CHECK DESCRIPTION TEXT
-						if config.TargetFlaws.RequireTextInDesc == true && strings.Contains(f.Description, config.TargetFlaws.RequiredText) {
+						if (config.TargetFlaws.RequireTextInDesc == true && strings.Contains(f.Description, config.TargetFlaws.RequiredText)) || config.TargetFlaws.RequireTextInDesc == false {
 							//CHECK SCAN TYPE
+							log.Println("checking scan type")
 							if (config.TargetFlaws.Static == true && (f.Module != "dynamic_analysis" && f.Module != "manual_analysis")) ||
 								(config.TargetFlaws.Dynamic == true && f.Module == "dynamic_analysis") {
 								// Build Array
+								log.Println("Appended to flawList")
+
 								flawList = append(flawList, f.Issueid)
 							}
 						}
@@ -106,7 +118,6 @@ func main() {
 			}
 			// IF WE HAVE FLAWS MEETING CRITERIA, RUN UPDATE MITIGATION API
 			if len(flawList) > 0 {
-
 				if config.Mode.LogOnly == true {
 					log.Printf("[*]LOG MODE ONLY - App ID: %v Flaw ID(s) %v meet criteria\n", appID, strings.Join(flawList, ","))
 				} else {
@@ -128,6 +139,7 @@ func main() {
 						// EXAMPLE = RESULTS IN BUILD 3 (MANUAL); DYNAMIC IS BUILD 2; STATIC IS BUILD 1 (BUILD WE NEED TO MITIGATE STATIC FLAW)
 						for i := 0; i < 1; i++ {
 							if mitigationError != nil {
+								log.Println("in here")
 								mitigationError = vcodeapi.ParseUpdateMitigation(config.Auth.CredsFile, recentBuild,
 									actions[i], config.MitigationInfo.ProposalComment, strings.Join(flawList, ","))
 
