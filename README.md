@@ -25,7 +25,7 @@ A sample config file is below:
     "targetFlaws": {
       "cweList": "80, 79",
       "requireTextInDesc": true,
-      "requiredText":"texToSearchFor",
+      "requiredText":["texToSearchFor1","texToSearchFor2"],
       "static": true,
       "dynamic": true
     },

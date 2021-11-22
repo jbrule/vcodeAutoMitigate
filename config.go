@@ -27,7 +27,7 @@ type config struct {
 	TargetFlaws struct {
 		CWEList           string `json:"cweList"`
 		RequireTextInDesc bool   `json:"requireTextInDesc"`
-		RequiredText      string `json:"requiredText"`
+		RequiredText      []string `json:"requiredText"`
 		Static            bool   `json:"static"`
 		Dynamic           bool   `json:"dynamic"`
 	} `json:"targetFlaws"`
@@ -86,8 +86,8 @@ func parseConfig() config {
 	}
 
 	// IF REQUIRED TEXT IS TRUE, CONFIRM TEXT PRESENT
-	if config.TargetFlaws.RequireTextInDesc == true && config.TargetFlaws.RequiredText == "" {
-		log.Fatal("[!]Need to provide to text to search for in description")
+	if config.TargetFlaws.RequireTextInDesc == true && len(config.TargetFlaws.RequiredText) == 0 {
+		log.Fatal("[!]Need to provide the text to search for in description")
 	}
 
 	// CHECK MITIGATION TYPE IS VALID

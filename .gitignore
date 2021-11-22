@@ -5,4 +5,6 @@
 .idea/
 bin/
 *.sh
-
+go.mod
+go.sum
+*.conf

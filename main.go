@@ -7,19 +7,29 @@ import (
 	"time"
 
 	"github.com/brian1917/vcodeapi"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 )
+
+
 
 func main() {
 
 	// SET UP LOGGING FILE
-	f, err := os.OpenFile("vcodeAutoMitigate"+time.Now().Format("20060102_150405")+".log", os.O_CREATE|os.O_WRONLY, 0644)
+	debugLogfile, err := os.OpenFile("vcodeAutoMitigate-debug-"+time.Now().Format("20060102_150405")+".log", os.O_CREATE|os.O_WRONLY, 0644)
+	infoLogfile, err := os.OpenFile("vcodeAutoMitigate-info-"+time.Now().Format("20060102_150405")+".log", os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer f.Close()
-	log.SetOutput(os.Stdout)
-	log.Printf("Started running")
+
+	var (
+		debugLog *log.Logger
+		infoLog    *log.Logger
+	)
+
+	debugLog = log.New(debugLogfile, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile)
+    infoLog = log.New(infoLogfile, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
+
+	infoLog.Printf("Started running")
 
 	// SET SOME VARIABLES
 	var appSkip bool
@@ -32,7 +42,8 @@ func main() {
 
 	// PARSE CONFIG FILE AND LOG CONFIG SETTINGS
 	config := parseConfig()
-	log.Printf("[*] Config Settings: \n %+v \n", config)
+	debugLog.Printf("[*] Config Settings: \n %+v \n", config)
+	infoLog.Printf("[*] Config Settings: \n %+v \n", config)
 
 	// GET APP LIST
 	appList := getApps(config.Auth.CredsFile, config.Scope.AllApps, config.Scope.AppListTextFile)
@@ -45,12 +56,12 @@ func main() {
 		appSkip = false
 		appCounter++
 
-		log.Printf("Processing App ID %v (%v of %v)\n", appID, appCounter, len(appList))
+		debugLog.Printf("Processing App ID %v (%v of %v)\n", appID, appCounter, len(appList))
 
 		//GET THE BUILD LIST
 		buildList, err := vcodeapi.ParseBuildList(config.Auth.CredsFile, appID)
 		if err != nil {
-			log.Fatal(err)
+			debugLog.Fatal(err)
 		}
 
 		// GET FOUR MOST RECENT BUILD IDS
@@ -61,8 +72,9 @@ func main() {
 		} else {
 			//GET THE DETAILED RESULTS FOR MOST RECENT BUILD
 			a, flaws, _, errorCheck = vcodeapi.ParseDetailedReport(config.Auth.CredsFile, buildList[len(buildList)-1].BuildID)
-			spew.Dump(a)
-			spew.Dump(errorCheck)
+			
+			//spew.Dump(a)
+			//spew.Dump(errorCheck)
 			recentBuild = buildList[len(buildList)-1].BuildID
 			buildsBack = 1
 			// spew.Dump(buildList)
@@ -70,22 +82,23 @@ func main() {
 			for i := 1; i < 4; i++ {
 				if len(buildList) > i && errorCheck != nil {
 					a, flaws, _, errorCheck = vcodeapi.ParseDetailedReport(config.Auth.CredsFile, buildList[len(buildList)-(i+1)].BuildID)
-					spew.Dump(a)
+					
+					//spew.Dump(a)
 					recentBuild = buildList[len(buildList)-(i+1)].BuildID
 					buildsBack = i + 1
-					log.Println(buildsBack)
+					debugLog.Println(buildsBack)
 				}
 			}
 			// IF 4 MOST RECENT BUILDS HAVE ERRORS, THERE ARE NO RESULTS AVAILABLE
 			if errorCheck != nil {
-				log.Println("some sort of error")
+				debugLog.Println("some sort of error")
 				appSkip = true
 			}
 		}
 
 		//CHECK FLAWS AND
 		if appSkip == false {
-			log.Println("App not skipped")
+			debugLog.Println("App not skipped")
 			for _, f := range flaws {
 				// ONLY RUN ON NEW, OPEN, AND RE-OPENE FLAWS
 				if f.RemediationStatus == "New" || f.RemediationStatus == "Open" || f.RemediationStatus == "Reopened" {
@@ -94,20 +107,20 @@ func main() {
 					cweList := strings.Split(config.TargetFlaws.CWEList, ",")
 					for _, cwe := range cweList {
 						if cwe == f.Cweid {
-							log.Println("match")
+							debugLog.Println("match")
 							matches++
 						}
 					}
-					log.Printf("%v Matches found", matches)
+					debugLog.Printf("%v Matches found", matches)
 					if matches > 0 {
 						// CHECK DESCRIPTION TEXT
-						if (config.TargetFlaws.RequireTextInDesc == true && strings.Contains(f.Description, config.TargetFlaws.RequiredText)) || config.TargetFlaws.RequireTextInDesc == false {
+						if (config.TargetFlaws.RequireTextInDesc == true && containsStrings(f.Description, config.TargetFlaws.RequiredText)) || config.TargetFlaws.RequireTextInDesc == false {
 							//CHECK SCAN TYPE
-							log.Println("checking scan type")
+							debugLog.Println("checking scan type")
 							if (config.TargetFlaws.Static == true && (f.Module != "dynamic_analysis" && f.Module != "manual_analysis")) ||
 								(config.TargetFlaws.Dynamic == true && f.Module == "dynamic_analysis") {
 								// Build Array
-								log.Println("Appended to flawList")
+								debugLog.Println("Appended to flawList")
 
 								flawList = append(flawList, f.Issueid)
 							}
@@ -119,7 +132,8 @@ func main() {
 			// IF WE HAVE FLAWS MEETING CRITERIA, RUN UPDATE MITIGATION API
 			if len(flawList) > 0 {
 				if config.Mode.LogOnly == true {
-					log.Printf("[*]LOG MODE ONLY - App ID: %v Flaw ID(s) %v meet criteria\n", appID, strings.Join(flawList, ","))
+					debugLog.Printf("[*]LOG MODE ONLY - App ID: %v Flaw ID(s) %v meet criteria\n", appID, strings.Join(flawList, ","))
+					infoLog.Printf("[*]LOG MODE ONLY - App ID: %v Flaw ID(s) %v meet criteria\n", appID, strings.Join(flawList, ","))
 				} else {
 
 					// SET THE ACTIONS
@@ -139,7 +153,7 @@ func main() {
 						// EXAMPLE = RESULTS IN BUILD 3 (MANUAL); DYNAMIC IS BUILD 2; STATIC IS BUILD 1 (BUILD WE NEED TO MITIGATE STATIC FLAW)
 						for i := 0; i < 1; i++ {
 							if mitigationError != nil {
-								log.Println("in here")
+								debugLog.Println("in here")
 								mitigationError = vcodeapi.ParseUpdateMitigation(config.Auth.CredsFile, recentBuild,
 									actions[i], config.MitigationInfo.ProposalComment, strings.Join(flawList, ","))
 
@@ -147,15 +161,33 @@ func main() {
 						}
 						// IF EXPIRE ERROR IS STILL NOT NULL, NOW WE LOG THE ERROR AND EXIT
 						if mitigationError != nil {
-							log.Printf("[!] Mitigation Error: %v", mitigationError)
-							log.Fatalf("[!] Could not "+actions[i]+" mitigation for Flaw IDs %v in App ID %v", flawList, appID)
+							debugLog.Printf("[!] Mitigation Error: %v", mitigationError)
+							debugLog.Fatalf("[!] Could not "+actions[i]+" mitigation for Flaw IDs %v in App ID %v", flawList, appID)
+							infoLog.Fatalf("[!] Could not "+actions[i]+" mitigation for Flaw IDs %v in App ID %v", flawList, appID)
 						}
 						// LOG SUCCESSFUL PROPOSED MITIGATIONS
-						log.Printf("[*] MITIGATION ACTION COMPLETED - App ID %v: "+actions[i]+" Flaw IDs %v\n", appID, strings.Join(flawList, ","))
+						debugLog.Printf("[*] MITIGATION ACTION COMPLETED - App ID %v: "+actions[i]+" Flaw IDs %v\n", appID, strings.Join(flawList, ","))
+						infoLog.Printf("[*] MITIGATION ACTION COMPLETED - App ID %v: "+actions[i]+" Flaw IDs %v\n", appID, strings.Join(flawList, ","))
 					}
 				}
 			}
 		}
+
+		debugLog.Printf("",a)
 	}
-	log.Printf("Completed running")
+	debugLog.Printf("Completed running")
+	infoLog.Printf("Completed running")
+	defer debugLogfile.Close()
+	defer infoLogfile.Close()
+}
+
+func containsStrings(haystack string, needles []string) bool {
+
+	for _, needle := range needles {
+		if strings.Contains(haystack,needle) {
+			return true
+		}
+	}
+
+	return false
 }
