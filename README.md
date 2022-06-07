@@ -15,7 +15,8 @@ A sample config file is below:
     },
     "scope": {
         "allApps": false,
-        "appListTextFile": "applist.txt"
+        "appListTextFile": "applist.txt",
+        "regexAppNameExclude": "^Retired"
     },
     "mode":{
       "logOnly": true,
@@ -25,7 +26,7 @@ A sample config file is below:
     "targetFlaws": {
       "cweList": "80, 79",
       "requireTextInDesc": true,
-      "requiredText":["texToSearchFor1","texToSearchFor2"],
+      "requiredText":["textToSearchFor1","textToSearchFor2","/^MatchPrefixAnd\\d+/"],
       "static": true,
       "dynamic": true
     },
@@ -39,7 +40,7 @@ A sample config file is below:
  **_Configuration Notes_**:
  1. The `appsListTextFile` parameter should be used when `allApps` is set to `false`. It should be a text file with target app IDs on separate lines.
  2. The `cweList` parameter should be a comma separated list of CWEs to target for mitigation.
- 3. The `requiredTextInDesc` parameter will search for text in the flaw description. The text to search for should be placed in the `requiredText` parameter. For example, you can use this to target flaws on a specific cookie from a dynamic scan by including the cookie name.
+ 3. The `requiredTextInDesc` parameter will search for text in the flaw description. The text to search for should be placed in the `requiredText` parameter as an array. For example, you can use this to target flaws on a specific cookie from a dynamic scan by including the cookie name. To use regular expression matching beging and end with `/` making sure to double `\`.
  4. The `mitigationType` must be `comment`, `fp`, `appdesign`, `osenv`, or `netenv`.
 
 ## Credentials File
