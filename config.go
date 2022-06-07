@@ -16,6 +16,7 @@ type config struct {
 	Scope struct {
 		AllApps         bool   `json:"allApps"`
 		AppListTextFile string `json:"appListTextFile"`
+		RegexAppNameExclude         string   `json:"regexAppNameExclude"`
 	} `json:"scope"`
 
 	Mode struct {

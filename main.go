@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"regexp"
 
 	"github.com/brian1917/vcodeapi"
 	//"github.com/davecgh/go-spew/spew"
@@ -15,6 +16,7 @@ import (
 func main() {
 
 	// SET UP LOGGING FILE
+	errorLogfile, err := os.OpenFile("vcodeAutoMitigate-error-"+time.Now().Format("20060102_150405")+".log", os.O_CREATE|os.O_WRONLY, 0644)
 	debugLogfile, err := os.OpenFile("vcodeAutoMitigate-debug-"+time.Now().Format("20060102_150405")+".log", os.O_CREATE|os.O_WRONLY, 0644)
 	infoLogfile, err := os.OpenFile("vcodeAutoMitigate-info-"+time.Now().Format("20060102_150405")+".log", os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -22,12 +24,14 @@ func main() {
 	}
 
 	var (
+		errorLog *log.Logger
 		debugLog *log.Logger
-		infoLog    *log.Logger
+		infoLog  *log.Logger
 	)
 
+	errorLog = log.New(errorLogfile, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 	debugLog = log.New(debugLogfile, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile)
-    infoLog = log.New(infoLogfile, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
+  infoLog = log.New(infoLogfile, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
 
 	infoLog.Printf("Started running")
 
@@ -45,6 +49,9 @@ func main() {
 	debugLog.Printf("[*] Config Settings: \n %+v \n", config)
 	infoLog.Printf("[*] Config Settings: \n %+v \n", config)
 
+	var regexAppNameExclude = regexp.MustCompile(config.Scope.RegexAppNameExclude)
+
+
 	// GET APP LIST
 	appList := getApps(config.Auth.CredsFile, config.Scope.AllApps, config.Scope.AppListTextFile)
 	appCounter := 0
@@ -61,7 +68,10 @@ func main() {
 		//GET THE BUILD LIST
 		buildList, err := vcodeapi.ParseBuildList(config.Auth.CredsFile, appID)
 		if err != nil {
-			debugLog.Fatal(err)
+			debugLog.Println(err)
+			errorLog.Printf("Processing App ID %v (%v of %v)\n", appID, appCounter, len(appList))
+			errorLog.Println(err)
+			continue
 		}
 
 		// GET FOUR MOST RECENT BUILD IDS
@@ -89,6 +99,12 @@ func main() {
 					debugLog.Println(buildsBack)
 				}
 			}
+
+			if len(config.Scope.RegexAppNameExclude) > 0 && len(regexAppNameExclude.FindStringIndex(a.AppName)) > 0 {
+				debugLog.Println("App Name Matched for Exclusion")
+				appSkip = true
+			}
+			
 			// IF 4 MOST RECENT BUILDS HAVE ERRORS, THERE ARE NO RESULTS AVAILABLE
 			if errorCheck != nil {
 				debugLog.Println("some sort of error")
@@ -162,8 +178,11 @@ func main() {
 						// IF EXPIRE ERROR IS STILL NOT NULL, NOW WE LOG THE ERROR AND EXIT
 						if mitigationError != nil {
 							debugLog.Printf("[!] Mitigation Error: %v", mitigationError)
-							debugLog.Fatalf("[!] Could not "+actions[i]+" mitigation for Flaw IDs %v in App ID %v", flawList, appID)
-							infoLog.Fatalf("[!] Could not "+actions[i]+" mitigation for Flaw IDs %v in App ID %v", flawList, appID)
+							debugLog.Printf("[!] Could not "+actions[i]+" mitigation for Flaw IDs %v in App ID %v", flawList, appID)
+							infoLog.Printf("[!] Could not "+actions[i]+" mitigation for Flaw IDs %v in App ID %v", flawList, appID)
+							errorLog.Printf("[!] Mitigation Error: %v", mitigationError)
+							errorLog.Printf("[!] Could not "+actions[i]+" mitigation for Flaw IDs %v in App ID %v", flawList, appID)
+							continue
 						}
 						// LOG SUCCESSFUL PROPOSED MITIGATIONS
 						debugLog.Printf("[*] MITIGATION ACTION COMPLETED - App ID %v: "+actions[i]+" Flaw IDs %v\n", appID, strings.Join(flawList, ","))
@@ -184,7 +203,14 @@ func main() {
 func containsStrings(haystack string, needles []string) bool {
 
 	for _, needle := range needles {
-		if strings.Contains(haystack,needle) {
+		if strings.HasPrefix(needle,"/") && strings.HasSuffix(needle,"/") {
+			needle = strings.TrimPrefix(needle,"/")
+			needle = strings.TrimSuffix(needle,"/")
+			matched, _ := regexp.MatchString(needle,haystack)
+			if matched {
+				return true
+			}
+		} else if strings.Contains(haystack,needle) {
 			return true
 		}
 	}
