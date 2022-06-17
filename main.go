@@ -59,6 +59,7 @@ func main() {
 	// CYCLE THROUGH EACH APP
 	for _, appID := range appList {
 		//ADJUST SOME VARIABLES
+		var appName string
 		flawList = []string{}
 		appSkip = false
 		appCounter++
@@ -83,6 +84,8 @@ func main() {
 			//GET THE DETAILED RESULTS FOR MOST RECENT BUILD
 			a, flaws, _, errorCheck = vcodeapi.ParseDetailedReport(config.Auth.CredsFile, buildList[len(buildList)-1].BuildID)
 			
+			appName = a.AppName
+
 			//spew.Dump(a)
 			//spew.Dump(errorCheck)
 			recentBuild = buildList[len(buildList)-1].BuildID
@@ -92,7 +95,9 @@ func main() {
 			for i := 1; i < 4; i++ {
 				if len(buildList) > i && errorCheck != nil {
 					a, flaws, _, errorCheck = vcodeapi.ParseDetailedReport(config.Auth.CredsFile, buildList[len(buildList)-(i+1)].BuildID)
-					
+
+					appName = a.AppName
+
 					//spew.Dump(a)
 					recentBuild = buildList[len(buildList)-(i+1)].BuildID
 					buildsBack = i + 1
@@ -148,8 +153,8 @@ func main() {
 			// IF WE HAVE FLAWS MEETING CRITERIA, RUN UPDATE MITIGATION API
 			if len(flawList) > 0 {
 				if config.Mode.LogOnly == true {
-					debugLog.Printf("[*]LOG MODE ONLY - App ID: %v Flaw ID(s) %v meet criteria\n", appID, strings.Join(flawList, ","))
-					infoLog.Printf("[*]LOG MODE ONLY - App ID: %v Flaw ID(s) %v meet criteria\n", appID, strings.Join(flawList, ","))
+					debugLog.Printf("[*]LOG MODE ONLY - App ID: %v (%v) Flaw ID(s) %v meet criteria\n", appID, appName, strings.Join(flawList, ","))
+					infoLog.Printf("[*]LOG MODE ONLY - App ID: %v (%v) Flaw ID(s) %v meet criteria\n", appID, appName, strings.Join(flawList, ","))
 				} else {
 
 					// SET THE ACTIONS
@@ -163,8 +168,14 @@ func main() {
 
 					// CHECK CONFIGURATIONS AND MITIGATE AND/OR LOG
 					for i := 0; i <= limit; i++ {
+						var comment string
+						if i == 0 {
+							comment = config.MitigationInfo.ProposalComment
+						} else {
+							comment = config.MitigationInfo.ApprovalComment
+						}
 						mitigationError := vcodeapi.ParseUpdateMitigation(config.Auth.CredsFile, recentBuild,
-							actions[i], config.MitigationInfo.ProposalComment, strings.Join(flawList, ","))
+							actions[i], comment, strings.Join(flawList, ","))
 						// IF WE HAVE AN ERROR, WE NEED TO TRY 2 BUILDS BACK FROM RESULTS BUILD
 						// EXAMPLE = RESULTS IN BUILD 3 (MANUAL); DYNAMIC IS BUILD 2; STATIC IS BUILD 1 (BUILD WE NEED TO MITIGATE STATIC FLAW)
 						for i := 0; i < 1; i++ {
