@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -23,6 +24,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	mw := io.MultiWriter(os.Stdout, debugLogfile)
+
 	var (
 		errorLog *log.Logger
 		debugLog *log.Logger
@@ -30,7 +33,7 @@ func main() {
 	)
 
 	errorLog = log.New(errorLogfile, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
-	debugLog = log.New(debugLogfile, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile)
+	debugLog = log.New(mw, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile)
   infoLog = log.New(infoLogfile, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
 
 	infoLog.Printf("Started running")
