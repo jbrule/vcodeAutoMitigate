@@ -9,12 +9,15 @@ import (
 )
 
 type config struct {
+	Name string `json:name`
+
 	Auth struct {
 		CredsFile string `json:"credsFile"`
 	} `json:"auth"`
 
 	Scope struct {
 		AllApps         bool   `json:"allApps"`
+		AppList         string `json:"appList"`
 		AppListTextFile string `json:"appListTextFile"`
 		RegexAppNameExclude         string   `json:"regexAppNameExclude"`
 	} `json:"scope"`
@@ -41,9 +44,27 @@ type config struct {
 }
 
 var configFile string
+var mode string
 
 func init() {
-	flag.StringVar(&configFile, "config", "", "Veracode username")
+	flag.StringVar(&configFile, "config", "", "Config Filename")
+	flag.StringVar(&mode,"mode","config","[LogOnly|ProposeOnly|ProposeAndAccept]")
+}
+
+func resetMode(config *config,newMode string) {
+	config.Mode.LogOnly = false
+	config.Mode.ProposeOnly = false
+	config.Mode.ProposeAndAccept = false
+
+	switch newMode {
+		case "LogOnly":
+			config.Mode.LogOnly = true
+		case "ProposeOnly":
+			config.Mode.ProposeOnly = true
+		case "ProposeAndAccept":
+			config.Mode.ProposeAndAccept = true
+		default:
+	}
 }
 
 func parseConfig() config {
@@ -61,6 +82,11 @@ func parseConfig() config {
 	err = json.Unmarshal(data, &config)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+  //Handle Mode Switch (if provided)
+	if mode != "config" {
+		resetMode(&config, mode)
 	}
 
 	// CHECK FOR MODE ERRORS
@@ -84,6 +110,11 @@ func parseConfig() config {
 	// REMOVE SPACES FROM CWE LIST
 	if strings.Contains(config.TargetFlaws.CWEList, " ") {
 		config.TargetFlaws.CWEList = strings.Replace(config.TargetFlaws.CWEList, " ", "", -1)
+	}
+
+	// REMOVE SPACES FROM APP LIST
+	if strings.Contains(config.Scope.AppList, " ") {
+		config.Scope.AppList = strings.Replace(config.Scope.AppList, " ", "", -1)
 	}
 
 	// IF REQUIRED TEXT IS TRUE, CONFIRM TEXT PRESENT

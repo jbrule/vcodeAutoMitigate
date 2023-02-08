@@ -15,11 +15,13 @@ import (
 
 
 func main() {
+	// PARSE CONFIG FILE AND LOG CONFIG SETTINGS
+	config := parseConfig()
 
 	// SET UP LOGGING FILE
-	errorLogfile, err := os.OpenFile("vcodeAutoMitigate-error-"+time.Now().Format("20060102_150405")+".log", os.O_CREATE|os.O_WRONLY, 0644)
-	debugLogfile, err := os.OpenFile("vcodeAutoMitigate-debug-"+time.Now().Format("20060102_150405")+".log", os.O_CREATE|os.O_WRONLY, 0644)
-	infoLogfile, err := os.OpenFile("vcodeAutoMitigate-info-"+time.Now().Format("20060102_150405")+".log", os.O_CREATE|os.O_WRONLY, 0644)
+	errorLogfile, err := os.OpenFile(config.Name+"-error-"+time.Now().Format("20060102_150405")+".log", os.O_CREATE|os.O_WRONLY, 0644)
+	debugLogfile, err := os.OpenFile(config.Name+"-debug-"+time.Now().Format("20060102_150405")+".log", os.O_CREATE|os.O_WRONLY, 0644)
+	infoLogfile, err := os.OpenFile(config.Name+"-info-"+time.Now().Format("20060102_150405")+".log", os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -47,16 +49,13 @@ func main() {
 	var buildsBack int
 	var a vcodeapi.DetReport
 
-	// PARSE CONFIG FILE AND LOG CONFIG SETTINGS
-	config := parseConfig()
 	debugLog.Printf("[*] Config Settings: \n %+v \n", config)
 	infoLog.Printf("[*] Config Settings: \n %+v \n", config)
 
 	var regexAppNameExclude = regexp.MustCompile(config.Scope.RegexAppNameExclude)
 
-
 	// GET APP LIST
-	appList := getApps(config.Auth.CredsFile, config.Scope.AllApps, config.Scope.AppListTextFile)
+	appList := getApps(config.Auth.CredsFile, config.Scope.AllApps, config.Scope.AppList, config.Scope.AppListTextFile)
 	appCounter := 0
 
 	// CYCLE THROUGH EACH APP

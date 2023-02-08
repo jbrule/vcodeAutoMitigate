@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"log"
 	"os"
-
+	"strings"
 	"github.com/brian1917/vcodeapi"
 )
 
-func getApps(credsFile string, allApps bool, txtfile string) []string {
+func getApps(credsFile string, allApps bool, appList string, txtfile string) []string {
 	var apps []string
 
 	if allApps == true {
@@ -20,6 +20,8 @@ func getApps(credsFile string, allApps bool, txtfile string) []string {
 		for _, app := range appList {
 			apps = append(apps, app.AppID)
 		}
+	} else if appList != "" {
+		apps = strings.Split(appList, ",")
 	} else {
 		file, err := os.Open(txtfile)
 		if err != nil {
