@@ -107,6 +107,10 @@ func parseConfig() config {
 		log.Fatal("[!]At least one mode has to be set to true.")
 	}
 
+	if config.Name == "" {
+		config.Name = "vcodeAutoMitigate"
+	}
+
 	// REMOVE SPACES FROM CWE LIST
 	if strings.Contains(config.TargetFlaws.CWEList, " ") {
 		config.TargetFlaws.CWEList = strings.Replace(config.TargetFlaws.CWEList, " ", "", -1)
