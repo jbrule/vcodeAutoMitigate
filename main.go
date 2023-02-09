@@ -26,7 +26,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	mw := io.MultiWriter(os.Stdout, debugLogfile)
+	mw := io.MultiWriter(os.Stdout, infoLogfile)
 
 	var (
 		errorLog *log.Logger
@@ -35,8 +35,8 @@ func main() {
 	)
 
 	errorLog = log.New(errorLogfile, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
-	debugLog = log.New(mw, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile)
-  infoLog = log.New(infoLogfile, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
+	debugLog = log.New(debugLogfile, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile)
+  infoLog = log.New(mw, "INFO: ", log.Ldate|log.Ltime|log.Lshortfile)
 
 	infoLog.Printf("Started running")
 
@@ -66,6 +66,7 @@ func main() {
 		appSkip = false
 		appCounter++
 
+		infoLog.Printf("Processing App ID %v (%v of %v)\n", appID, appCounter, len(appList))
 		debugLog.Printf("Processing App ID %v (%v of %v)\n", appID, appCounter, len(appList))
 
 		//GET THE BUILD LIST
@@ -121,6 +122,7 @@ func main() {
 
 		//CHECK FLAWS AND
 		if appSkip == false {
+			infoLog.Println("App not skipped")
 			debugLog.Println("App not skipped")
 			for _, f := range flaws {
 				// ONLY RUN ON NEW, OPEN, AND RE-OPENE FLAWS
@@ -206,11 +208,13 @@ func main() {
 		}
 
 		debugLog.Printf("",a)
+		infoLog.Printf(appName)
 	}
 	debugLog.Printf("Completed running")
 	infoLog.Printf("Completed running")
 	defer debugLogfile.Close()
 	defer infoLogfile.Close()
+	defer errorLogfile.Close()
 }
 
 func containsStrings(haystack string, needles []string) bool {
