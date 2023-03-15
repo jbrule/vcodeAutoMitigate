@@ -144,6 +144,18 @@ func main() {
 							debugLog.Println("checking scan type")
 							if (config.TargetFlaws.Static == true && (f.Module != "dynamic_analysis" && f.Module != "manual_analysis")) ||
 								(config.TargetFlaws.Dynamic == true && f.Module == "dynamic_analysis") {
+
+								// IF A MODULE NAME IS PROVIDED AND DOES NOT MATCH. SKIP TO NEXT INTERATION
+								if (len(config.TargetFlaws.Module) != 0 && config.TargetFlaws.Module != f.Module) {
+									debugLog.Printf("Module \"%v\" does not match \"%v\". Skipping to next flaw",config.TargetFlaws.Module,f.Module)
+									continue
+								}
+								// IF A SOURCE IS PROVIDED AND DOES NOT MATCH. SKIP TO NEXT INTERATION
+								if (len(config.TargetFlaws.Source) != 0 && config.TargetFlaws.Source != f.Sourcefile) {
+									debugLog.Printf("Source \"%v\" does not match \"%v\". Skipping to next flaw",config.TargetFlaws.Source,f.Sourcefile)
+									continue
+								}
+
 								// Build Array
 								debugLog.Println("Appended to flawList")
 
@@ -151,7 +163,6 @@ func main() {
 							}
 						}
 					}
-
 				}
 			}
 			// IF WE HAVE FLAWS MEETING CRITERIA, RUN UPDATE MITIGATION API

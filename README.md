@@ -4,6 +4,7 @@
 Command line app that mitigates flaws in Veracode based on CWE, scan type, and specific text in the description.
 
 ## Parameters
+`-mode`: [LogOnly|ProposeOnly|ProposeAndAccept] optional (overrides config file if provided)
 `-config`: path to JSON config file
 
 ## Configuration File
@@ -27,8 +28,10 @@ A sample config file is below:
       "cweList": "80, 79",
       "requireTextInDesc": true,
       "requiredText":["textToSearchFor1","textToSearchFor2","/^MatchPrefixAnd\\d+/"],
+      "module": "module name", # Optional -> This and dynamic = true are mutually exclusive.
+      "source": "CustomerData.cs", # Optional -> This and dynamic = true are mutually exclusive.
       "static": true,
-      "dynamic": true
+      "dynamic": false
     },
     "mitigationInfo":{
         "mitigationType": "netenv",

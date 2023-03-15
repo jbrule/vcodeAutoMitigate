@@ -32,6 +32,8 @@ type config struct {
 		CWEList           string `json:"cweList"`
 		RequireTextInDesc bool   `json:"requireTextInDesc"`
 		RequiredText      []string `json:"requiredText"`
+		Module            string `json:"module"`
+		Source            string `json:"source"`
 		Static            bool   `json:"static"`
 		Dynamic           bool   `json:"dynamic"`
 	} `json:"targetFlaws"`
@@ -124,6 +126,11 @@ func parseConfig() config {
 	// IF REQUIRED TEXT IS TRUE, CONFIRM TEXT PRESENT
 	if config.TargetFlaws.RequireTextInDesc == true && len(config.TargetFlaws.RequiredText) == 0 {
 		log.Fatal("[!]Need to provide the text to search for in description")
+	}
+
+	// IF MODULE IS PROVIDED DYNAMIC SCAN CANNOT BE TRUE
+	if config.TargetFlaws.Dynamic == true && (len(config.TargetFlaws.Module) != 0 || len(config.TargetFlaws.Source) != 0) {
+		log.Fatal("[!]Dynamic and module,source parameters are mutually exclusive.")
 	}
 
 	// CHECK MITIGATION TYPE IS VALID
