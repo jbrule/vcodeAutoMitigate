@@ -4,8 +4,9 @@
 Command line app that mitigates flaws in Veracode based on CWE, scan type, and specific text in the description.
 
 ## Parameters
-`-mode`: [LogOnly|ProposeOnly|ProposeAndAccept] optional (overrides config file if provided)
 `-config`: path to JSON config file
+
+`-mode`: [LogOnly|ProposeOnly|ProposeAndAccept] optional (overrides config file setting if provided)
 
 ## Configuration File
 A sample config file is below:
