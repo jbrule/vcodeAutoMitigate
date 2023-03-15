@@ -146,12 +146,12 @@ func main() {
 								(config.TargetFlaws.Dynamic == true && f.Module == "dynamic_analysis") {
 
 								// IF A MODULE NAME IS PROVIDED AND DOES NOT MATCH. SKIP TO NEXT INTERATION
-								if (len(config.TargetFlaws.Module) != 0 && config.TargetFlaws.Module != f.Module) {
+								if (len(config.TargetFlaws.Module) != 0 && !containsString(f.Module, config.TargetFlaws.Module)) {
 									debugLog.Printf("Module \"%v\" does not match \"%v\". Skipping to next flaw",config.TargetFlaws.Module,f.Module)
 									continue
 								}
 								// IF A SOURCE IS PROVIDED AND DOES NOT MATCH. SKIP TO NEXT INTERATION
-								if (len(config.TargetFlaws.Source) != 0 && config.TargetFlaws.Source != f.Sourcefile) {
+								if (len(config.TargetFlaws.Source) != 0 && !containsString(f.Sourcefile, config.TargetFlaws.Source)) {
 									debugLog.Printf("Source \"%v\" does not match \"%v\". Skipping to next flaw",config.TargetFlaws.Source,f.Sourcefile)
 									continue
 								}
@@ -231,16 +231,24 @@ func main() {
 func containsStrings(haystack string, needles []string) bool {
 
 	for _, needle := range needles {
-		if strings.HasPrefix(needle,"/") && strings.HasSuffix(needle,"/") {
-			needle = strings.TrimPrefix(needle,"/")
-			needle = strings.TrimSuffix(needle,"/")
-			matched, _ := regexp.MatchString(needle,haystack)
-			if matched {
-				return true
-			}
-		} else if strings.Contains(haystack,needle) {
+		if containsString(haystack, needle) {
 			return true
 		}
+	}
+
+	return false
+}
+
+func containsString(haystack string, needle string) bool {
+	if strings.HasPrefix(needle,"/") && strings.HasSuffix(needle,"/") {
+		needle = strings.TrimPrefix(needle,"/")
+		needle = strings.TrimSuffix(needle,"/")
+		matched, _ := regexp.MatchString(needle,haystack)
+		if matched {
+			return true
+		}
+	} else if strings.Contains(haystack,needle) {
+		return true
 	}
 
 	return false
