@@ -59,15 +59,21 @@ func main() {
 	appCounter := 0
 
 	// CYCLE THROUGH EACH APP
-	for _, appID := range appList {
+	for appID, appName := range appList {
 		//ADJUST SOME VARIABLES
-		var appName string
 		flawList = []string{}
 		appSkip = false
 		appCounter++
 
-		infoLog.Printf("Processing App ID %v (%v of %v)\n", appID, appCounter, len(appList))
-		debugLog.Printf("Processing App ID %v (%v of %v)\n", appID, appCounter, len(appList))
+
+
+		infoLog.Printf("Processing \"%v\" App ID %v (%v of %v)\n", appName, appID, appCounter, len(appList))
+		debugLog.Printf("Processing \"%v\" App ID %v (%v of %v)\n", appName, appID, appCounter, len(appList))
+
+		if len(config.Scope.RegexAppNameExclude) > 0 && len(regexAppNameExclude.FindStringIndex(appName)) > 0 {
+			debugLog.Println("App Name Matched for Exclusion")
+			appSkip = true
+		}
 
 		//GET THE BUILD LIST
 		buildList, err := vcodeapi.ParseBuildList(config.Auth.CredsFile, appID)
@@ -87,8 +93,6 @@ func main() {
 			//GET THE DETAILED RESULTS FOR MOST RECENT BUILD
 			a, flaws, _, errorCheck = vcodeapi.ParseDetailedReport(config.Auth.CredsFile, buildList[len(buildList)-1].BuildID)
 			
-			appName = a.AppName
-
 			//spew.Dump(a)
 			//spew.Dump(errorCheck)
 			recentBuild = buildList[len(buildList)-1].BuildID
@@ -99,18 +103,11 @@ func main() {
 				if len(buildList) > i && errorCheck != nil {
 					a, flaws, _, errorCheck = vcodeapi.ParseDetailedReport(config.Auth.CredsFile, buildList[len(buildList)-(i+1)].BuildID)
 
-					appName = a.AppName
-
 					//spew.Dump(a)
 					recentBuild = buildList[len(buildList)-(i+1)].BuildID
 					buildsBack = i + 1
 					debugLog.Println(buildsBack)
 				}
-			}
-
-			if len(config.Scope.RegexAppNameExclude) > 0 && len(regexAppNameExclude.FindStringIndex(a.AppName)) > 0 {
-				debugLog.Println("App Name Matched for Exclusion")
-				appSkip = true
 			}
 			
 			// IF 4 MOST RECENT BUILDS HAVE ERRORS, THERE ARE NO RESULTS AVAILABLE
@@ -177,10 +174,10 @@ func main() {
 
 					// FOR PROPOSE ONLY, CYCLE THROUGH ONCE
 					limit := 1
+
 					if config.Mode.ProposeOnly == true {
 						limit = 0
 					}
-
 					// CHECK CONFIGURATIONS AND MITIGATE AND/OR LOG
 					for i := 0; i <= limit; i++ {
 						var comment string
@@ -198,14 +195,16 @@ func main() {
 								debugLog.Println("in here")
 								mitigationError = vcodeapi.ParseUpdateMitigation(config.Auth.CredsFile, recentBuild,
 									actions[i], config.MitigationInfo.ProposalComment, strings.Join(flawList, ","))
-
 							}
 						}
 						// IF EXPIRE ERROR IS STILL NOT NULL, NOW WE LOG THE ERROR AND EXIT
 						if mitigationError != nil {
+							debugLog.Printf("Loop Index:%v",actions[i])
 							debugLog.Printf("[!] Mitigation Error: %v", mitigationError)
 							debugLog.Printf("[!] Could not "+actions[i]+" mitigation for Flaw IDs %v in App ID %v", flawList, appID)
+							
 							infoLog.Printf("[!] Could not "+actions[i]+" mitigation for Flaw IDs %v in App ID %v", flawList, appID)
+							
 							errorLog.Printf("[!] Mitigation Error: %v", mitigationError)
 							errorLog.Printf("[!] Could not "+actions[i]+" mitigation for Flaw IDs %v in App ID %v", flawList, appID)
 							continue
@@ -219,7 +218,6 @@ func main() {
 		}
 
 		debugLog.Printf("",a)
-		infoLog.Printf(appName)
 	}
 	debugLog.Printf("Completed running")
 	infoLog.Printf("Completed running")

@@ -9,8 +9,8 @@ import (
 	"github.com/brian1917/vcodeapi"
 )
 
-func getApps(credsFile string, allApps bool, appList string, txtfile string) []string {
-	var apps []string
+func getApps(credsFile string, allApps bool, appList string, txtfile string) map[string]string {
+	var apps = make(map[string]string)
 
 	if allApps == true {
 		appList, err := vcodeapi.ParseAppList(credsFile)
@@ -18,10 +18,12 @@ func getApps(credsFile string, allApps bool, appList string, txtfile string) []s
 			log.Fatal(err)
 		}
 		for _, app := range appList {
-			apps = append(apps, app.AppID)
+			apps[app.AppID] = app.AppName
 		}
 	} else if appList != "" {
-		apps = strings.Split(appList, ",")
+		for _, appID := range strings.Split(appList, ",") {
+			apps[appID] = ""
+		}
 	} else {
 		file, err := os.Open(txtfile)
 		if err != nil {
@@ -32,7 +34,7 @@ func getApps(credsFile string, allApps bool, appList string, txtfile string) []s
 
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
-			apps = append(apps, scanner.Text())
+			apps[scanner.Text()] = ""
 		}
 
 		if err := scanner.Err(); err != nil {
