@@ -12,7 +12,9 @@ type config struct {
 	Name string `json:name`
 
 	Auth struct {
-		CredsFile string `json:"credsFile"`
+		CredsFile         string `json:"credsFile"`
+		ProposerCredsFile string `json:"proposerCredsFile"`
+		AcceptorCredsFile string `json:"acceptorCredsFile"`
 	} `json:"auth"`
 
 	Scope struct {
@@ -29,6 +31,7 @@ type config struct {
 	} `json:"mode"`
 
 	TargetFlaws struct {
+		SeverityList      string `json:"severityList"`
 		CWEList           string `json:"cweList"`
 		RequireTextInDesc bool   `json:"requireTextInDesc"`
 		RequiredText      []string `json:"requiredText"`
@@ -113,6 +116,34 @@ func parseConfig() config {
 		config.Name = "vcodeAutoMitigate"
 	}
 
+	// Creds file management
+
+	// Check if credsFile or proposer+acceptor are provided. Cannot provide both
+	if (len(config.Auth.ProposerCredsFile) > 0 || len(config.Auth.AcceptorCredsFile) > 0) && len(config.Auth.CredsFile) > 0 {
+		log.Fatal("[!]Credentials must be supplied for either credsFile or proposerCredsFile+acceptorCredsFile. Cannot supply both.")
+	} else if 
+	  (len(config.Auth.ProposerCredsFile) > 0 && len(config.Auth.AcceptorCredsFile) == 0) ||
+		(len(config.Auth.ProposerCredsFile) == 0 && len(config.Auth.AcceptorCredsFile) > 0) && 
+		len(config.Auth.CredsFile) == 0 {
+		log.Fatal("[!]Both proposerCredsFile and acceptorCredsFile must be provided")
+	}
+
+	// Set proposerCredFile and acceptorCredFile to credFile if omitted and credFile is provided
+	if len(config.Auth.ProposerCredsFile) == 0 && len(config.Auth.AcceptorCredsFile) == 0 && len(config.Auth.CredsFile) > 0 {
+		config.Auth.ProposerCredsFile = config.Auth.CredsFile
+		config.Auth.AcceptorCredsFile = config.Auth.CredsFile
+	}
+
+	// REMOVE SPACES FROM Severity LIST
+	if strings.Contains(config.TargetFlaws.SeverityList, " ") {
+		config.TargetFlaws.SeverityList = strings.Replace(config.TargetFlaws.SeverityList, " ", "", -1)
+	}
+
+		// REMOVE SPACES FROM Severity LIST
+		if len(config.TargetFlaws.SeverityList) == 0 {
+			config.TargetFlaws.SeverityList = "*"
+		}
+
 	// REMOVE SPACES FROM CWE LIST
 	if strings.Contains(config.TargetFlaws.CWEList, " ") {
 		config.TargetFlaws.CWEList = strings.Replace(config.TargetFlaws.CWEList, " ", "", -1)
@@ -121,6 +152,11 @@ func parseConfig() config {
 	// REMOVE SPACES FROM APP LIST
 	if strings.Contains(config.Scope.AppList, " ") {
 		config.Scope.AppList = strings.Replace(config.Scope.AppList, " ", "", -1)
+	}
+
+	// REMOVE SPACES FROM APP LIST
+	if config.Scope.AllApps == true && len(config.Scope.AppList) > 0 {
+		log.Fatal("[!]AllApps and AppList are mutually exclusive settings. Either set AppApps false or remove apps from AppList")
 	}
 
 	// IF REQUIRED TEXT IS TRUE, CONFIRM TEXT PRESENT
@@ -133,12 +169,18 @@ func parseConfig() config {
 		log.Fatal("[!]Dynamic and module,source parameters are mutually exclusive.")
 	}
 
+	// DISALLOW WILDCARD MITIGATION ACROSS ALLAPPS
+	if config.TargetFlaws.CWEList == "*" && config.Scope.AllApps == true {
+		log.Fatal("[!]Wildcard CweList cannot be used with AllApps option.")
+	}
+
 	// CHECK MITIGATION TYPE IS VALID
 	if config.MitigationInfo.MitigationType != "appdesign" &&
 		config.MitigationInfo.MitigationType != "osenv" &&
 		config.MitigationInfo.MitigationType != "netenv" &&
+		config.MitigationInfo.MitigationType != "acceptrisk" &&
 		config.MitigationInfo.MitigationType != "fp" {
-		log.Fatal("[!]Mitigation type needs to be appdesign, osenv, netenv, or fp")
+		log.Fatal("[!]Mitigation type needs to be appdesign, osenv, netenv, acceptrisk, or fp")
 	}
 
 	return config
